@@ -13,6 +13,9 @@ export async function Navbar() {
           MyApp
         </Link>
         <nav className="flex items-center gap-4">
+          <Link href="/posts">
+            <Button variant="ghost">Board</Button>
+          </Link>
           {session ? (
             <>
               <Link href="/dashboard">

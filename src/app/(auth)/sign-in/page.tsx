@@ -9,7 +9,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export default function SignInPage() {
+type SignInPageProps = {
+  searchParams: Promise<{ redirectTo?: string }>
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const { redirectTo } = await searchParams
+  const safeRedirectTo =
+    redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard"
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -20,7 +28,7 @@ export default function SignInPage() {
         <form
           action={async () => {
             "use server"
-            await signIn("github", { redirectTo: "/dashboard" })
+            await signIn("github", { redirectTo: safeRedirectTo })
           }}
         >
           <Button type="submit" variant="outline" className="w-full">
@@ -30,7 +38,7 @@ export default function SignInPage() {
         <form
           action={async () => {
             "use server"
-            await signIn("google", { redirectTo: "/dashboard" })
+            await signIn("google", { redirectTo: safeRedirectTo })
           }}
         >
           <Button type="submit" variant="outline" className="w-full">
