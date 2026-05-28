@@ -1,28 +1,27 @@
-# Next.js Boilerplate Design Spec
+# Next.js Boilerplate Design
 
 **Date:** 2026-05-28  
-**Status:** Approved
+**Purpose:** Personal project starter — eliminate repetitive setup when starting new Next.js projects.
 
 ---
 
 ## Overview
 
-A minimal Next.js boilerplate that provides a clean, production-ready starting point with authentication, database, and UI tooling pre-configured. The goal is zero unnecessary code — every file in the boilerplate serves a purpose on any project that uses it.
+A minimal, opinionated Next.js boilerplate with authentication, database, and a modern UI stack. Designed to be copied and extended quickly without unnecessary complexity.
 
 ---
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js (App Router) |
-| Styling | Tailwind CSS |
-| UI Components | shadcn/ui |
-| Auth | NextAuth.js v5 (Auth.js) |
-| Auth Provider | Google OAuth only |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| Package Manager | pnpm |
+| Package | Version | Role |
+|---------|---------|------|
+| next | 15.x | Framework |
+| next-auth (Auth.js) | 5.x | Authentication |
+| @prisma/client | 6.x | Database ORM |
+| tailwindcss | 4.x | Styling |
+| shadcn/ui | latest | UI components |
+| typescript | 5.x | Type safety |
+| zod | 3.x | Schema validation |
 
 ---
 
@@ -30,131 +29,145 @@ A minimal Next.js boilerplate that provides a clean, production-ready starting p
 
 ```
 src/
-  app/
-    (auth)/
-      login/
-        page.tsx              # Login page — Google sign-in button
-    (protected)/
-      dashboard/
-        page.tsx              # Authenticated users only
-    layout.tsx                # Root layout — SessionProvider, ThemeProvider, Geist font
-    page.tsx                  # Home page (public)
-  components/
-    ui/                       # shadcn/ui components
-    auth/
-      sign-in-button.tsx      # Google OAuth sign-in button
-    theme-toggle.tsx          # Dark/light mode toggle
-  lib/
-    auth.ts                   # NextAuth v5 config — Google provider, Prisma adapter
-    db.ts                     # Prisma client singleton
-  types/
-    next-auth.d.ts            # Session type augmentation (adds user.id)
-prisma/
-  schema.prisma               # DB schema
-middleware.ts                 # Route protection
-.env.example                  # Required environment variables
+├── app/
+│   ├── (auth)/
+│   │   ├── sign-in/page.tsx
+│   │   └── sign-up/page.tsx
+│   ├── (dashboard)/
+│   │   └── dashboard/page.tsx
+│   ├── api/
+│   │   └── auth/[...nextauth]/route.ts
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── ui/              # shadcn auto-generated components
+│   ├── navbar.tsx
+│   └── providers.tsx
+├── lib/
+│   ├── auth.ts          # Auth.js config
+│   ├── db.ts            # Prisma singleton
+│   └── utils.ts         # cn() and shared utilities
+└── prisma/
+    └── schema.prisma
 ```
+
+**Key decisions:**
+- Route Groups `(auth)` and `(dashboard)` isolate layouts without affecting the URL path.
+- `lib/db.ts` uses a singleton pattern to prevent Prisma client duplication in development hot-reload.
+- `components/ui/` is reserved for shadcn — do not place custom components here.
 
 ---
 
-## Authentication & Database
+## Authentication
 
-### NextAuth v5
+- **Provider:** Auth.js v5 (NextAuth)
+- **Social providers:** GitHub and Google (configured via `.env`)
+- **Strategy:** No email/password — social-only keeps the auth surface small and secure
+- **Session:** JWT-based (stateless), no database session table required
 
-- Google OAuth provider
-- Prisma adapter — sessions stored in DB (not JWT)
-- Session strategy: `database`
-- `Session` type extended to include `user.id`
+Route protection is handled by `middleware.ts`. Any request to `/dashboard/*` by an unauthenticated user is redirected to `/sign-in`.
+
+Server components use the `auth()` helper directly for session checks.
+
+---
+
+## Database
+
+- **Engine:** PostgreSQL
+- **ORM:** Prisma 6.x
 
 ### Prisma Schema
 
-Four NextAuth-required tables:
+```prisma
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+}
 
-- `User` — `id`, `name`, `email`, `image`, `emailVerified`, `createdAt`
-- `Account` — OAuth account linking
-- `Session` — active sessions
-- `VerificationToken` — email verification tokens
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-Database provider: `postgresql`, connection via `DATABASE_URL` env var.
+  @@unique([provider, providerAccountId])
+}
 
-### Middleware
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-File: `middleware.ts`
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-- Protects `/dashboard` and all paths beneath it
-- Unauthenticated requests redirect to `/login`
-- Authenticated users visiting `/login` redirect to `/dashboard`
-
-### Environment Variables
-
-```
-DATABASE_URL=
-AUTH_SECRET=
-AUTH_GOOGLE_ID=
-AUTH_GOOGLE_SECRET=
+  @@unique([identifier, token])
+}
 ```
 
 ---
 
 ## Pages
 
-### Home (`/`)
-
-Public page. Brief service description and a "Get Started" button linking to `/login`.
-
-### Login (`/login`)
-
-Single shadcn `Card` containing a Google sign-in button. No username/password fields.
-
-### Dashboard (`/dashboard`)
-
-Displays the signed-in user's avatar, name, and email. Includes a sign-out button via `DropdownMenu`.
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page with Hero section and CTA button |
+| `/sign-in` | Social login buttons (GitHub, Google) |
+| `/sign-up` | Redirects to `/sign-in` (social-only flow) |
+| `/dashboard` | Protected page showing session info |
 
 ---
 
-## UI & Theming
+## Components
 
-**shadcn/ui components installed at init:**
-`Button`, `Card`, `Avatar`, `DropdownMenu`, `Separator`
-
-**Dark mode:** `next-themes` — `ThemeToggle` component placed in the header.
-
-**Font:** Geist Sans via `next/font/google`.
+- `components/ui/` — Button, Card, Input, Label (shadcn, auto-generated)
+- `components/navbar.tsx` — Shows login/logout based on session state
+- `components/providers.tsx` — Wraps app with SessionProvider
 
 ---
 
-## Tooling & DX
+## Environment Variables
 
-**TypeScript:** `strict` mode, `@/*` path alias mapped to `src/`.
+`.env.example` is committed to the repo. `.env` is gitignored.
 
-**Linting/Formatting:**
-- ESLint with Next.js default config
-- Prettier with `prettier-plugin-tailwindcss`
-
-**package.json scripts:**
-
-```json
-{
-  "dev": "next dev",
-  "build": "next build",
-  "db:push": "prisma db push",
-  "db:studio": "prisma studio"
-}
+```env
+DATABASE_URL=
+AUTH_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
 
-**README covers:**
-1. Clone and install
-2. Copy `.env.example` to `.env` and fill values
-3. Google OAuth console setup (with link)
-4. `pnpm db:push` to sync schema
-5. `pnpm dev` to start
-
 ---
 
-## Out of Scope
+## Explicitly Out of Scope
 
-- Email/password credentials auth
-- Additional OAuth providers (GitHub, etc.)
-- CRUD example pages
-- Monorepo structure
-- Deployment configuration (Vercel, Docker, etc.)
+The following are intentionally excluded to keep the boilerplate lean:
+
+- Testing setup (Jest, Playwright)
+- Internationalization (i18n)
+- Email sending
+- Payment integration
+- Role-based access control
+- Dark mode toggle (Tailwind handles via class strategy if needed later)
