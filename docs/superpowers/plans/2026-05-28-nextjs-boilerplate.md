@@ -2,172 +2,141 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Scaffold a minimal Next.js boilerplate with App Router, Tailwind CSS, shadcn/ui, NextAuth v5 (Google OAuth), and Prisma (PostgreSQL).
+**Goal:** Build a personal Next.js starter boilerplate with Tailwind CSS, shadcn/ui, Auth.js v5 (GitHub + Google), and PostgreSQL via Prisma.
 
-**Architecture:** Single Next.js App Router application with route groups `(auth)` and `(protected)` for layout separation. NextAuth v5 handles Google OAuth via Prisma adapter for database session storage. Middleware enforces route protection. All files are TypeScript-strict.
+**Architecture:** App Router with Route Groups — `(auth)` for sign-in/sign-up and `(dashboard)` for protected pages. Auth.js handles JWT sessions with a PrismaAdapter for persisting users and accounts. Route protection via `src/middleware.ts`.
 
-**Tech Stack:** Next.js 15+ (App Router), TypeScript (strict), Tailwind CSS, shadcn/ui, NextAuth v5 (`next-auth@beta`), `@auth/prisma-adapter`, Prisma, PostgreSQL, next-themes, pnpm
+**Tech Stack:** Next.js 16 · Auth.js v5 (`next-auth@5`) · Prisma 6 · PostgreSQL · Tailwind CSS v4 · shadcn/ui · TypeScript · zod · pnpm
 
 ---
 
 ## File Map
 
-| Path | Purpose |
-|---|---|
-| `src/app/layout.tsx` | Root layout — Geist font, Providers |
-| `src/app/page.tsx` | Home page (public) |
-| `src/app/(auth)/login/page.tsx` | Login page with Google button |
-| `src/app/(protected)/dashboard/page.tsx` | Auth-gated dashboard |
-| `src/app/api/auth/[...nextauth]/route.ts` | NextAuth HTTP handlers |
-| `src/components/providers.tsx` | Client providers: SessionProvider + ThemeProvider |
-| `src/components/theme-toggle.tsx` | Dark/light mode toggle |
-| `src/components/auth/sign-in-button.tsx` | Google sign-in button |
-| `src/components/ui/` | shadcn/ui generated components |
-| `src/lib/auth.ts` | NextAuth v5 config (Google, Prisma adapter) |
-| `src/lib/db.ts` | Prisma client singleton |
-| `src/types/next-auth.d.ts` | Session type augmentation (adds `user.id`) |
-| `middleware.ts` | Route protection |
-| `prisma/schema.prisma` | NextAuth DB schema |
-| `.env.example` | Environment variable template |
-| `README.md` | Setup instructions |
+| Action | Path | Responsibility |
+|--------|------|----------------|
+| Create | `prisma/schema.prisma` | User, Account, Session, VerificationToken models |
+| Create | `src/lib/db.ts` | Prisma client singleton |
+| Create | `src/lib/auth.ts` | Auth.js config, exports `auth`, `signIn`, `signOut`, `handlers` |
+| Create | `src/lib/utils.ts` | `cn()` helper (clsx + tailwind-merge) |
+| Create | `src/app/api/auth/[...nextauth]/route.ts` | Auth.js HTTP handler |
+| Create | `src/middleware.ts` | Redirect unauthenticated users away from `/dashboard` |
+| Create | `src/components/providers.tsx` | Client-side `SessionProvider` wrapper |
+| Create | `src/components/navbar.tsx` | Server component navbar — shows sign in/out based on session |
+| Modify | `src/app/layout.tsx` | Add `Providers` + `Navbar`, update metadata |
+| Modify | `src/app/page.tsx` | Replace default page with Hero + CTA landing page |
+| Create | `src/app/(auth)/layout.tsx` | Centered card layout for auth pages |
+| Create | `src/app/(auth)/sign-in/page.tsx` | GitHub + Google sign-in buttons |
+| Create | `src/app/(auth)/sign-up/page.tsx` | Redirect to `/sign-in` |
+| Create | `src/app/(dashboard)/layout.tsx` | Dashboard shell layout |
+| Create | `src/app/(dashboard)/dashboard/page.tsx` | Protected page showing session info |
+| Create | `.env.example` | Environment variable template |
 
 ---
 
-### Task 1: Initialize Next.js project
+## Task 1: Install dependencies
 
-**Files:**
-- Create: entire project scaffold via `create-next-app`
+**Files:** `package.json`, `pnpm-lock.yaml`
 
-- [ ] **Step 1: Scaffold project with create-next-app**
-
-Run from the project root (`C:\Users\HOME\harness_project\test2`):
+- [ ] **Step 1: Install runtime packages**
 
 ```bash
-pnpm create next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-git
+pnpm add next-auth@5 @auth/prisma-adapter @prisma/client zod
 ```
 
-When prompted about the non-empty directory, confirm **Yes**. If asked about Turbopack, accept the default (Yes).
+Expected output: packages added successfully, no errors.
 
-- [ ] **Step 2: Verify the build compiles**
+- [ ] **Step 2: Install Prisma CLI as dev dependency**
 
 ```bash
-pnpm build
-```
-
-Expected: build completes with no errors. Output ends with `✓ Compiled successfully`.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add .
-git commit -m "feat: initialize Next.js project"
-```
-
----
-
-### Task 2: Add Prettier with Tailwind plugin
-
-**Files:**
-- Create: `.prettierrc`
-- Create: `.prettierignore`
-
-- [ ] **Step 1: Install packages**
-
-```bash
-pnpm add -D prettier prettier-plugin-tailwindcss
-```
-
-- [ ] **Step 2: Create `.prettierrc`**
-
-```json
-{
-  "semi": false,
-  "singleQuote": false,
-  "tabWidth": 2,
-  "trailingComma": "all",
-  "plugins": ["prettier-plugin-tailwindcss"]
-}
-```
-
-- [ ] **Step 3: Create `.prettierignore`**
-
-```
-.next
-node_modules
-pnpm-lock.yaml
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add .prettierrc .prettierignore
-git commit -m "chore: add Prettier with Tailwind CSS plugin"
-```
-
----
-
-### Task 3: Initialize shadcn/ui and install base components
-
-**Files:**
-- Create: `components.json`
-- Create: `src/lib/utils.ts`
-- Create: `src/components/ui/button.tsx`, `card.tsx`, `avatar.tsx`, `dropdown-menu.tsx`, `separator.tsx`
-
-- [ ] **Step 1: Initialize shadcn/ui**
-
-```bash
-pnpm dlx shadcn@latest init -d
-```
-
-The `-d` flag accepts all defaults: New York style, zinc base color, CSS variables enabled.
-
-- [ ] **Step 2: Install required components**
-
-```bash
-pnpm dlx shadcn@latest add button card avatar dropdown-menu separator
-```
-
-- [ ] **Step 3: Verify build**
-
-```bash
-pnpm build
-```
-
-Expected: no errors.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add .
-git commit -m "feat: add shadcn/ui with base components"
-```
-
----
-
-### Task 4: Install Prisma and write NextAuth schema
-
-**Files:**
-- Create: `prisma/schema.prisma`
-- Modify: `.gitignore` (ensure `.env` is excluded)
-
-- [ ] **Step 1: Install Prisma**
-
-```bash
-pnpm add @prisma/client
 pnpm add -D prisma
 ```
 
-- [ ] **Step 2: Initialize Prisma**
+Expected output: prisma added to devDependencies.
+
+- [ ] **Step 3: Verify package.json has all packages**
+
+```bash
+cat package.json
+```
+
+Expected: `"next-auth"`, `"@auth/prisma-adapter"`, `"@prisma/client"`, `"zod"`, `"prisma"` are all present.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add package.json pnpm-lock.yaml
+git commit -m "chore: add auth, prisma, and zod dependencies"
+```
+
+---
+
+## Task 2: Environment variables
+
+**Files:** `.env.example`, `.gitignore`
+
+- [ ] **Step 1: Create `.env.example`**
+
+```bash
+cat > .env.example << 'EOF'
+DATABASE_URL=postgresql://user:password@localhost:5432/myapp
+
+AUTH_SECRET=
+
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+EOF
+```
+
+- [ ] **Step 2: Ensure `.env` is in `.gitignore`**
+
+Open `.gitignore` and confirm it contains `.env`. If not, add it:
+
+```
+.env
+```
+
+- [ ] **Step 3: Create your local `.env` from the example**
+
+```bash
+cp .env.example .env
+```
+
+Then fill in:
+- `AUTH_SECRET`: generate with `pnpm dlx auth secret` or any random 32-char string
+- `DATABASE_URL`: your local PostgreSQL connection string
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`: from https://github.com/settings/developers (OAuth App, callback: `http://localhost:3000/api/auth/callback/github`)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: from Google Cloud Console (callback: `http://localhost:3000/api/auth/callback/google`)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .env.example .gitignore
+git commit -m "chore: add environment variable template"
+```
+
+---
+
+## Task 3: Prisma schema and db singleton
+
+**Files:**
+- Create: `prisma/schema.prisma`
+- Create: `src/lib/db.ts`
+
+- [ ] **Step 1: Initialize Prisma**
 
 ```bash
 pnpm dlx prisma init --datasource-provider postgresql
 ```
 
-This creates `prisma/schema.prisma` and adds `DATABASE_URL` to `.env`.
+Expected: `prisma/schema.prisma` and `.env` created (if `.env` already exists, Prisma will not overwrite it).
 
-- [ ] **Step 3: Replace `prisma/schema.prisma` with the NextAuth schema**
+- [ ] **Step 2: Replace `prisma/schema.prisma` with Auth.js models**
 
 ```prisma
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -183,12 +152,13 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  createdAt     DateTime  @default(now())
   accounts      Account[]
   sessions      Session[]
+  createdAt     DateTime  @default(now())
 }
 
 model Account {
+  id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
@@ -200,30 +170,37 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
 }
 
 model Session {
+  id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
   identifier String
-  token      String
+  token      String   @unique
   expires    DateTime
 
-  @@id([identifier, token])
+  @@unique([identifier, token])
 }
 ```
+
+- [ ] **Step 3: Run migration to create tables**
+
+Ensure your `DATABASE_URL` in `.env` is correct, then:
+
+```bash
+pnpm dlx prisma migrate dev --name init
+```
+
+Expected: migration file created in `prisma/migrations/`, tables created in database.
 
 - [ ] **Step 4: Generate Prisma client**
 
@@ -231,46 +208,23 @@ model VerificationToken {
 pnpm dlx prisma generate
 ```
 
-Expected: output includes `Generated Prisma Client`.
+Expected: `@prisma/client` types generated.
 
-- [ ] **Step 5: Verify `.gitignore` excludes `.env`**
-
-Open `.gitignore` and confirm `.env` is listed. If missing, add it:
-
-```
-.env
-.env.local
-```
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add prisma/schema.prisma .gitignore
-git commit -m "feat: add Prisma schema with NextAuth tables"
-```
-
----
-
-### Task 5: Create Prisma client singleton
-
-**Files:**
-- Create: `src/lib/db.ts`
-
-- [ ] **Step 1: Create `src/lib/db.ts`**
+- [ ] **Step 5: Create `src/lib/db.ts`**
 
 ```typescript
+// src/lib/db.ts
 import { PrismaClient } from "@prisma/client"
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-export const db = globalForPrisma.prisma ?? new PrismaClient()
+export const db =
+  globalForPrisma.prisma ?? new PrismaClient()
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 6: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -278,93 +232,64 @@ pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/db.ts
-git commit -m "feat: add Prisma client singleton"
+git add prisma/ src/lib/db.ts
+git commit -m "feat: add Prisma schema and db singleton"
 ```
 
 ---
 
-### Task 6: Install and configure NextAuth v5
+## Task 4: Auth.js configuration
 
 **Files:**
 - Create: `src/lib/auth.ts`
-- Create: `src/types/next-auth.d.ts`
+- Create: `src/app/api/auth/[...nextauth]/route.ts`
 
-- [ ] **Step 1: Install NextAuth v5 and Prisma adapter**
-
-```bash
-pnpm add next-auth@beta @auth/prisma-adapter
-```
-
-- [ ] **Step 2: Create `src/lib/auth.ts`**
+- [ ] **Step 1: Create `src/lib/auth.ts`**
 
 ```typescript
+// src/lib/auth.ts
 import NextAuth from "next-auth"
+import GitHub from "next-auth/providers/github"
 import Google from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { db } from "@/lib/db"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
-  providers: [Google],
-  session: { strategy: "database" },
-  callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id
-      return session
-    },
+  providers: [
+    GitHub({
+      clientId: process.env.AUTH_GITHUB_ID,
+      clientSecret: process.env.AUTH_GITHUB_SECRET,
+    }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+  ],
+  pages: {
+    signIn: "/sign-in",
+  },
+  session: {
+    strategy: "jwt",
   },
 })
 ```
 
-- [ ] **Step 3: Create `src/types/next-auth.d.ts`**
+- [ ] **Step 2: Create the Auth.js API route handler**
+
+Create directory `src/app/api/auth/[...nextauth]/` then create `route.ts`:
 
 ```typescript
-import type { DefaultSession } from "next-auth"
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-    } & DefaultSession["user"]
-  }
-}
-```
-
-- [ ] **Step 4: Verify TypeScript**
-
-```bash
-pnpm tsc --noEmit
-```
-
-Expected: no errors.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/lib/auth.ts src/types/next-auth.d.ts
-git commit -m "feat: configure NextAuth v5 with Google provider and Prisma adapter"
-```
-
----
-
-### Task 7: Create NextAuth API route
-
-**Files:**
-- Create: `src/app/api/auth/[...nextauth]/route.ts`
-
-- [ ] **Step 1: Create `src/app/api/auth/[...nextauth]/route.ts`**
-
-```typescript
+// src/app/api/auth/[...nextauth]/route.ts
 import { handlers } from "@/lib/auth"
 
 export const { GET, POST } = handlers
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 3: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -372,39 +297,32 @@ pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add "src/app/api/auth/[...nextauth]/route.ts"
-git commit -m "feat: add NextAuth API route handler"
+git add src/lib/auth.ts src/app/api/
+git commit -m "feat: add Auth.js v5 configuration"
 ```
 
 ---
 
-### Task 8: Configure route-protection middleware
+## Task 5: Middleware for route protection
 
 **Files:**
-- Create: `middleware.ts` (at project root, alongside `src/`)
+- Create: `src/middleware.ts`
 
-- [ ] **Step 1: Create `middleware.ts`**
+- [ ] **Step 1: Create `src/middleware.ts`**
 
 ```typescript
+// src/middleware.ts
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth
-  const { pathname } = req.nextUrl
-
-  if (pathname.startsWith("/dashboard") && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url))
+  if (!req.auth && req.nextUrl.pathname.startsWith("/dashboard")) {
+    const signInUrl = new URL("/sign-in", req.nextUrl.origin)
+    return NextResponse.redirect(signInUrl)
   }
-
-  if (pathname === "/login" && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
-  }
-
-  return NextResponse.next()
 })
 
 export const config = {
@@ -412,7 +330,7 @@ export const config = {
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 2: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -423,72 +341,53 @@ Expected: no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add middleware.ts
-git commit -m "feat: add route protection middleware"
+git add src/middleware.ts
+git commit -m "feat: add middleware for dashboard route protection"
 ```
 
 ---
 
-### Task 9: Create Providers component and update root layout
+## Task 6: shadcn/ui setup
 
-**Files:**
-- Create: `src/components/providers.tsx`
-- Modify: `src/app/layout.tsx`
+**Files:** `components.json`, `src/app/globals.css`, `src/lib/utils.ts`, `src/components/ui/`
 
-- [ ] **Step 1: Install next-themes**
+- [ ] **Step 1: Initialize shadcn**
 
 ```bash
-pnpm add next-themes
+pnpm dlx shadcn@latest init
 ```
 
-- [ ] **Step 2: Create `src/components/providers.tsx`**
+When prompted:
+- Style: **Default**
+- Base color: **Neutral**
+- CSS variables: **Yes**
+
+This creates `components.json` and updates `src/app/globals.css` with CSS variable definitions and `src/lib/utils.ts` with `cn()`.
+
+- [ ] **Step 2: Install required shadcn components**
+
+```bash
+pnpm dlx shadcn@latest add button card input label
+```
+
+Expected: files created in `src/components/ui/` — `button.tsx`, `card.tsx`, `input.tsx`, `label.tsx`.
+
+- [ ] **Step 3: Verify `src/lib/utils.ts` exists with `cn()`**
+
+The file should contain:
 
 ```typescript
-"use client"
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
-import { SessionProvider } from "next-auth/react"
-import { ThemeProvider } from "next-themes"
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <SessionProvider>{children}</SessionProvider>
-    </ThemeProvider>
-  )
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
 }
 ```
 
-- [ ] **Step 3: Replace `src/app/layout.tsx`**
+If shadcn did not create it, create it manually with the code above.
 
-```typescript
-import type { Metadata } from "next"
-import { Geist } from "next/font/google"
-import { Providers } from "@/components/providers"
-import "./globals.css"
-
-const geist = Geist({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Next.js Boilerplate",
-  description: "Next.js + Tailwind + shadcn/ui + NextAuth + Prisma",
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geist.className} antialiased`}>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  )
-}
-```
-
-- [ ] **Step 4: Verify TypeScript**
+- [ ] **Step 4: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -499,52 +398,148 @@ Expected: no errors.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/providers.tsx src/app/layout.tsx
-git commit -m "feat: add Providers component and update root layout"
+git add components.json src/components/ui/ src/lib/utils.ts src/app/globals.css
+git commit -m "feat: initialize shadcn/ui with button, card, input, label"
 ```
 
 ---
 
-### Task 10: Create ThemeToggle component
+## Task 7: Providers component
 
 **Files:**
-- Create: `src/components/theme-toggle.tsx`
+- Create: `src/components/providers.tsx`
 
-- [ ] **Step 1: Verify lucide-react is installed**
-
-Check `package.json` — shadcn/ui installs it as a dependency. If `lucide-react` is not listed, run:
-
-```bash
-pnpm add lucide-react
-```
-
-- [ ] **Step 2: Create `src/components/theme-toggle.tsx`**
+- [ ] **Step 1: Create `src/components/providers.tsx`**
 
 ```typescript
+// src/components/providers.tsx
 "use client"
 
-import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
+import { SessionProvider } from "next-auth/react"
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>
+}
+```
+
+- [ ] **Step 2: Type-check**
+
+```bash
+pnpm tsc --noEmit
+```
+
+Expected: no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/providers.tsx
+git commit -m "feat: add SessionProvider wrapper component"
+```
+
+---
+
+## Task 8: Navbar component and root layout
+
+**Files:**
+- Create: `src/components/navbar.tsx`
+- Modify: `src/app/layout.tsx`
+
+- [ ] **Step 1: Create `src/components/navbar.tsx`**
+
+```typescript
+// src/components/navbar.tsx
+import Link from "next/link"
+import { auth, signOut } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 
-export function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+export async function Navbar() {
+  const session = await auth()
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-    >
-      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      <span className="sr-only">Toggle theme</span>
-    </Button>
+    <header className="border-b">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <Link href="/" className="font-semibold text-lg">
+          MyApp
+        </Link>
+        <nav className="flex items-center gap-4">
+          {session ? (
+            <>
+              <Link href="/dashboard">
+                <Button variant="ghost">Dashboard</Button>
+              </Link>
+              <form
+                action={async () => {
+                  "use server"
+                  await signOut({ redirectTo: "/" })
+                }}
+              >
+                <Button type="submit" variant="outline">
+                  Sign out
+                </Button>
+              </form>
+            </>
+          ) : (
+            <Link href="/sign-in">
+              <Button>Sign in</Button>
+            </Link>
+          )}
+        </nav>
+      </div>
+    </header>
   )
 }
 ```
 
-- [ ] **Step 3: Verify TypeScript**
+- [ ] **Step 2: Update `src/app/layout.tsx`**
+
+Replace the entire file with:
+
+```typescript
+// src/app/layout.tsx
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import "./globals.css"
+import { Providers } from "@/components/providers"
+import { Navbar } from "@/components/navbar"
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+})
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+})
+
+export const metadata: Metadata = {
+  title: "MyApp",
+  description: "Next.js boilerplate with auth and database",
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        <Providers>
+          <Navbar />
+          {children}
+        </Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+- [ ] **Step 3: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -555,85 +550,43 @@ Expected: no errors.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/components/theme-toggle.tsx
-git commit -m "feat: add ThemeToggle component"
+git add src/components/navbar.tsx src/app/layout.tsx
+git commit -m "feat: add Navbar component and update root layout"
 ```
 
 ---
 
-### Task 11: Create SignInButton component
-
-**Files:**
-- Create: `src/components/auth/sign-in-button.tsx`
-
-- [ ] **Step 1: Create `src/components/auth/sign-in-button.tsx`**
-
-```typescript
-"use client"
-
-import { signIn } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-
-export function SignInButton() {
-  return (
-    <Button
-      className="w-full"
-      onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-    >
-      Continue with Google
-    </Button>
-  )
-}
-```
-
-- [ ] **Step 2: Verify TypeScript**
-
-```bash
-pnpm tsc --noEmit
-```
-
-Expected: no errors.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add src/components/auth/sign-in-button.tsx
-git commit -m "feat: add SignInButton component"
-```
-
----
-
-### Task 12: Create Home page
+## Task 9: Landing page
 
 **Files:**
 - Modify: `src/app/page.tsx`
 
-- [ ] **Step 1: Replace `src/app/page.tsx`**
+- [ ] **Step 1: Replace `src/app/page.tsx` with landing page**
 
 ```typescript
+// src/app/page.tsx
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
+      <div className="text-center space-y-4">
+        <h1 className="text-5xl font-bold tracking-tight">Welcome to MyApp</h1>
+        <p className="text-xl text-muted-foreground max-w-md">
+          A Next.js boilerplate with auth, database, and a modern UI stack.
+          Ready to build on.
+        </p>
       </div>
-      <h1 className="text-4xl font-bold">Next.js Boilerplate</h1>
-      <p className="max-w-md text-center text-muted-foreground">
-        Next.js · Tailwind · shadcn/ui · NextAuth · Prisma
-      </p>
-      <Button asChild>
-        <Link href="/login">Get Started</Link>
-      </Button>
+      <Link href="/sign-in">
+        <Button size="lg">Get started</Button>
+      </Link>
     </main>
   )
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 2: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -641,23 +594,53 @@ pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Build check**
+
+```bash
+pnpm build
+```
+
+Expected: build succeeds with no errors.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add src/app/page.tsx
-git commit -m "feat: add home page"
+git commit -m "feat: add landing page with hero and CTA"
 ```
 
 ---
 
-### Task 13: Create Login page
+## Task 10: Auth pages (sign-in + sign-up)
 
 **Files:**
-- Create: `src/app/(auth)/login/page.tsx`
+- Create: `src/app/(auth)/layout.tsx`
+- Create: `src/app/(auth)/sign-in/page.tsx`
+- Create: `src/app/(auth)/sign-up/page.tsx`
 
-- [ ] **Step 1: Create `src/app/(auth)/login/page.tsx`**
+- [ ] **Step 1: Create `src/app/(auth)/layout.tsx`**
 
 ```typescript
+// src/app/(auth)/layout.tsx
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <main className="flex flex-1 items-center justify-center px-4">
+      {children}
+    </main>
+  )
+}
+```
+
+- [ ] **Step 2: Create `src/app/(auth)/sign-in/page.tsx`**
+
+```typescript
+// src/app/(auth)/sign-in/page.tsx
+import { signIn } from "@/lib/auth"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -665,30 +648,53 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { SignInButton } from "@/components/auth/sign-in-button"
-import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function LoginPage() {
+export default function SignInPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Use your Google account to continue</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SignInButton />
-        </CardContent>
-      </Card>
-    </main>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle>Sign in</CardTitle>
+        <CardDescription>Choose a provider to continue</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <form
+          action={async () => {
+            "use server"
+            await signIn("github", { redirectTo: "/dashboard" })
+          }}
+        >
+          <Button type="submit" variant="outline" className="w-full">
+            Continue with GitHub
+          </Button>
+        </form>
+        <form
+          action={async () => {
+            "use server"
+            await signIn("google", { redirectTo: "/dashboard" })
+          }}
+        >
+          <Button type="submit" variant="outline" className="w-full">
+            Continue with Google
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 3: Create `src/app/(auth)/sign-up/page.tsx`**
+
+```typescript
+// src/app/(auth)/sign-up/page.tsx
+import { redirect } from "next/navigation"
+
+export default function SignUpPage() {
+  redirect("/sign-in")
+}
+```
+
+- [ ] **Step 4: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -696,122 +702,67 @@ pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add "src/app/(auth)/login/page.tsx"
-git commit -m "feat: add login page"
+git add src/app/\(auth\)/
+git commit -m "feat: add sign-in and sign-up pages"
 ```
 
 ---
 
-### Task 14: Create UserMenu component and Dashboard page
+## Task 11: Dashboard page
 
 **Files:**
-- Create: `src/components/auth/user-menu.tsx`
-- Create: `src/app/(protected)/dashboard/page.tsx`
+- Create: `src/app/(dashboard)/layout.tsx`
+- Create: `src/app/(dashboard)/dashboard/page.tsx`
 
-- [ ] **Step 1: Create `src/components/auth/user-menu.tsx`**
-
-This is a client component — it needs `"use client"` because DropdownMenu uses browser state.
+- [ ] **Step 1: Create `src/app/(dashboard)/layout.tsx`**
 
 ```typescript
-"use client"
-
-import { signOut } from "next-auth/react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
-interface UserMenuProps {
-  name: string | null | undefined
-  email: string | null | undefined
-  image: string | null | undefined
-  initials: string
-}
-
-export function UserMenu({ name, email, image, initials }: UserMenuProps) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={image ?? ""} alt={name ?? "User"} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{name}</p>
-            <p className="text-xs text-muted-foreground">{email}</p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="cursor-pointer"
-          onClick={() => signOut({ callbackUrl: "/" })}
-        >
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+// src/app/(dashboard)/layout.tsx
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <>{children}</>
 }
 ```
 
-- [ ] **Step 2: Create `src/app/(protected)/dashboard/page.tsx`**
+- [ ] **Step 2: Create `src/app/(dashboard)/dashboard/page.tsx`**
 
 ```typescript
-import { redirect } from "next/navigation"
+// src/app/(dashboard)/dashboard/page.tsx
 import { auth } from "@/lib/auth"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { UserMenu } from "@/components/auth/user-menu"
+import { redirect } from "next/navigation"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 export default async function DashboardPage() {
   const session = await auth()
-
-  if (!session) redirect("/login")
-
-  const { user } = session
-  const initials =
-    user.name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() ?? "U"
+  if (!session) redirect("/sign-in")
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="absolute right-4 top-4 flex items-center gap-2">
-        <ThemeToggle />
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          image={user.image}
-          initials={initials}
-        />
-      </div>
-      <Card className="w-full max-w-sm">
-        <CardHeader className="flex flex-col items-center gap-2 text-center">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={user.image ?? ""} alt={user.name ?? "User"} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-          <CardTitle>{user.name}</CardTitle>
+    <main className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <Card className="max-w-sm">
+        <CardHeader>
+          <CardTitle>Session Info</CardTitle>
         </CardHeader>
-        <CardContent className="text-center text-sm text-muted-foreground">
-          {user.email}
+        <CardContent className="space-y-2 text-sm">
+          <p>
+            <span className="font-medium">Name: </span>
+            {session.user?.name ?? "—"}
+          </p>
+          <p>
+            <span className="font-medium">Email: </span>
+            {session.user?.email ?? "—"}
+          </p>
         </CardContent>
       </Card>
     </main>
@@ -819,7 +770,7 @@ export default async function DashboardPage() {
 }
 ```
 
-- [ ] **Step 3: Verify TypeScript**
+- [ ] **Step 3: Type-check**
 
 ```bash
 pnpm tsc --noEmit
@@ -827,149 +778,53 @@ pnpm tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 4: Commit**
-
-```bash
-git add "src/components/auth/user-menu.tsx" "src/app/(protected)/dashboard/page.tsx"
-git commit -m "feat: add UserMenu component and dashboard page"
-```
-
----
-
-### Task 15: Add package scripts and .env.example
-
-**Files:**
-- Modify: `package.json`
-- Create: `.env.example`
-
-- [ ] **Step 1: Add db scripts to `package.json`**
-
-Open `package.json` and add two entries to the `"scripts"` object:
-
-```json
-"db:push": "prisma db push",
-"db:studio": "prisma studio"
-```
-
-The complete `"scripts"` section should read:
-
-```json
-"scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint",
-  "db:push": "prisma db push",
-  "db:studio": "prisma studio"
-}
-```
-
-- [ ] **Step 2: Create `.env.example`**
-
-```
-# Database
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
-
-# NextAuth — generate AUTH_SECRET with: openssl rand -base64 32
-AUTH_SECRET=""
-AUTH_GOOGLE_ID=""
-AUTH_GOOGLE_SECRET=""
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add package.json .env.example
-git commit -m "chore: add db scripts and .env.example"
-```
-
----
-
-### Task 16: Write README and run final build
-
-**Files:**
-- Modify: `README.md`
-
-- [ ] **Step 1: Replace `README.md`**
-
-````markdown
-# Next.js Boilerplate
-
-Next.js · Tailwind CSS · shadcn/ui · NextAuth v5 (Google) · Prisma · PostgreSQL
-
-## Stack
-
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 15+ (App Router) |
-| Styling | Tailwind CSS + shadcn/ui |
-| Auth | NextAuth v5 — Google OAuth |
-| Database | PostgreSQL via Prisma |
-| Themes | next-themes (dark / light) |
-
-## Getting Started
-
-### 1. Install dependencies
-
-```bash
-pnpm install
-```
-
-### 2. Configure environment variables
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `AUTH_SECRET` | Random string — `openssl rand -base64 32` |
-| `AUTH_GOOGLE_ID` | Google OAuth Client ID |
-| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret |
-
-### 3. Set up Google OAuth
-
-1. Open [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create an **OAuth 2.0 Client ID** (Web application)
-3. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-4. Copy the Client ID and Secret into `.env`
-
-### 4. Push database schema
-
-```bash
-pnpm db:push
-```
-
-### 5. Start development server
-
-```bash
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Scripts
-
-| Script | Description |
-|---|---|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Production build |
-| `pnpm db:push` | Sync Prisma schema to database |
-| `pnpm db:studio` | Open Prisma Studio |
-````
-
-- [ ] **Step 2: Run final production build**
+- [ ] **Step 4: Full build check**
 
 ```bash
 pnpm build
 ```
 
-Expected: build completes with no TypeScript or compilation errors.
+Expected: build succeeds with no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add README.md
-git commit -m "docs: add README with setup instructions"
+git add src/app/\(dashboard\)/
+git commit -m "feat: add protected dashboard page"
+```
+
+---
+
+## Task 12: Final verification
+
+- [ ] **Step 1: Start dev server**
+
+```bash
+pnpm dev
+```
+
+- [ ] **Step 2: Verify these routes work**
+
+Open `http://localhost:3000` and check:
+
+| URL | Expected |
+|-----|----------|
+| `/` | Hero page with "Get started" button |
+| `/sign-in` | Card with GitHub and Google buttons |
+| `/sign-up` | Redirects to `/sign-in` |
+| `/dashboard` | Redirects to `/sign-in` (not authenticated) |
+
+After signing in with a provider:
+
+| URL | Expected |
+|-----|----------|
+| `/dashboard` | Shows name and email from session |
+| Navbar | Shows "Dashboard" link + "Sign out" button |
+| Sign out | Redirects to `/` and navbar shows "Sign in" |
+
+- [ ] **Step 3: Final commit if any fixes were made**
+
+```bash
+git add -A
+git commit -m "fix: final verification fixes"
 ```
